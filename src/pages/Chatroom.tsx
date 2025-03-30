@@ -35,9 +35,7 @@ const languages: Language[] = [
   { code: 'pa', name: 'ਪੰਜਾਬੀ' }
 ];
 
-const WEBSOCKET_URL = process.env.NODE_ENV === 'production'
-  ? `wss://${window.location.host}/ws`
-  : `ws://${window.location.hostname}:5500/ws`;
+const WEBSOCKET_URL = import.meta.env.VITE_WS_URL || `ws://${window.location.hostname}:5500/ws`;
 
 const Chatroom = () => {
   const [messages, setMessages] = useState<Message[]>([]);
