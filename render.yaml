@@ -17,4 +17,4 @@ services:
     startCommand: npx serve dist
     envVars:
       - key: VITE_WS_URL
-        value: wss://chatroom-backend.onrender.com/ws 
+        value: wss://chatroom-backend-yw7z.onrender.com/ws 
