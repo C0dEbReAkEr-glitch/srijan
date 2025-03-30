@@ -4,18 +4,19 @@ interface AvatarProps {
   src?: string;
   fallback?: string;
   className?: string;
+  children?: React.ReactNode;
 }
 
-export const Avatar: React.FC<AvatarProps> = ({ src, fallback, className = '' }) => {
+export const Avatar: React.FC<AvatarProps> = ({ src, fallback, className = '', children }) => {
   return (
     <div className={`relative w-8 h-8 rounded-full overflow-hidden ${className}`}>
-      {src ? (
+      {children || (src ? (
         <img src={src} alt="Avatar" className="w-full h-full object-cover" />
       ) : fallback ? (
         <div className="w-full h-full bg-gray-200 flex items-center justify-center text-sm font-medium">
           {fallback}
         </div>
-      ) : null}
+      ) : null)}
     </div>
   );
 };
