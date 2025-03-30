@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState } from 'react';
 import { Message, Room } from '../types/chat';
+import { useAuth } from './AuthContext';
 
 interface ChatContextType {
   currentRoom: Room | null;
@@ -22,18 +23,19 @@ export const useChat = () => useContext(ChatContext);
 export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const { user } = useAuth();
 
   const addMessage = (message: Message) => {
     setMessages((prev) => [...prev, message]);
   };
 
   const sendMessage = (content: string) => {
-    if (!currentRoom) return;
+    if (!currentRoom || !user) return;
 
     const message: Message = {
       id: Date.now().toString(),
       content,
-      sender: 'currentUser', // This will be replaced with actual user from AuthContext
+      sender: user.username,
       timestamp: new Date(),
       roomId: currentRoom.id,
     };

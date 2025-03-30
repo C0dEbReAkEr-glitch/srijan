@@ -46,38 +46,42 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
       }));
 
       // Handle incoming messages
-      socket.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        
-        switch (data.type) {
-          case 'message':
-            addMessage({
-              id: Date.now().toString(),
-              content: data.content,
-              sender: data.username,
-              timestamp: new Date(data.timestamp),
-              roomId
-            });
-            break;
-            
-          case 'system':
-            addMessage({
-              id: Date.now().toString(),
-              content: data.message,
-              sender: 'System',
-              timestamp: new Date(data.timestamp),
-              roomId,
-              isSystem: true
-            });
-            break;
-            
-          case 'userList':
-            setConnectedUsers(data.users);
-            break;
-            
-          case 'typing':
-            // Handle typing indicators if needed
-            break;
+      socket.onmessage = (event: MessageEvent) => {
+        try {
+          const data = JSON.parse(event.data);
+          
+          switch (data.type) {
+            case 'message':
+              addMessage({
+                id: Date.now().toString(),
+                content: data.content,
+                sender: data.username,
+                timestamp: new Date(data.timestamp),
+                roomId
+              });
+              break;
+              
+            case 'system':
+              addMessage({
+                id: Date.now().toString(),
+                content: data.message,
+                sender: 'System',
+                timestamp: new Date(data.timestamp),
+                roomId,
+                isSystem: true
+              });
+              break;
+              
+            case 'userList':
+              setConnectedUsers(data.users);
+              break;
+              
+            case 'typing':
+              // Handle typing indicators if needed
+              break;
+          }
+        } catch (error) {
+          console.error('Error processing message:', error);
         }
       };
 
@@ -97,12 +101,12 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !socket || !isConnected) return;
+    if (!newMessage.trim() || !socket || !isConnected || !user) return;
 
     const message: Message = {
       id: Date.now().toString(),
       content: newMessage,
-      sender: user!.username,
+      sender: user.username,
       timestamp: new Date(),
       roomId
     };
@@ -200,7 +204,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
           <div className="flex gap-2">
             <Input
               value={newMessage}
-              onChange={(e) => {
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                 setNewMessage(e.target.value);
                 handleTyping();
               }}
