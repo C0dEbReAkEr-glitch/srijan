@@ -10,10 +10,11 @@ services:
       - key: PORT
         value: 5500
 
-  - type: static
+  - type: web
     name: chatroom-frontend
+    runtime: node
     buildCommand: npm install && npm run build
-    staticPublishPath: ./dist
+    startCommand: npx serve dist
     envVars:
       - key: VITE_WS_URL
         value: wss://chatroom-backend.onrender.com/ws 
