@@ -9,7 +9,7 @@ import { Input } from './ui/input';
 import { ScrollArea } from './ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Badge } from './ui/badge';
-import { Loader2 } from 'lucide-react';
+import { Loader2, RefreshCw } from 'lucide-react';
 
 interface ChatRoomProps {
   roomId: string;
@@ -18,11 +18,12 @@ interface ChatRoomProps {
 const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
   const { user } = useAuth();
   const { currentRoom, messages, sendMessage, addMessage } = useChat();
-  const { socket, isConnected } = useWebSocket();
+  const { socket, isConnected, reconnect } = useWebSocket();
   const [newMessage, setNewMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [connectedUsers, setConnectedUsers] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
@@ -38,53 +39,64 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
     }
 
     if (socket && isConnected) {
-      // Join the chat room
-      socket.send(JSON.stringify({
-        type: 'join',
-        username: user.username
-      }));
+      try {
+        // Join the chat room
+        socket.send(JSON.stringify({
+          type: 'join',
+          username: user.username
+        }));
 
-      // Handle incoming messages
-      socket.onmessage = (event: MessageEvent) => {
-        try {
-          const data = JSON.parse(event.data);
-          
-          switch (data.type) {
-            case 'message':
-              addMessage({
-                id: Date.now().toString(),
-                content: data.content,
-                sender: data.username,
-                timestamp: new Date(data.timestamp),
-                roomId
-              });
-              break;
-              
-            case 'system':
-              addMessage({
-                id: Date.now().toString(),
-                content: data.message,
-                sender: 'System',
-                timestamp: new Date(data.timestamp),
-                roomId,
-                isSystem: true
-              });
-              break;
-              
-            case 'userList':
-              setConnectedUsers(data.users);
-              break;
-              
-            case 'typing':
-              // Handle typing indicators if needed
-              break;
+        // Handle incoming messages
+        socket.onmessage = (event: MessageEvent) => {
+          try {
+            const data = JSON.parse(event.data);
+            
+            switch (data.type) {
+              case 'message':
+                addMessage({
+                  id: Date.now().toString(),
+                  content: data.content,
+                  sender: data.username,
+                  timestamp: new Date(data.timestamp),
+                  roomId
+                });
+                break;
+                
+              case 'system':
+                addMessage({
+                  id: Date.now().toString(),
+                  content: data.message,
+                  sender: 'System',
+                  timestamp: new Date(data.timestamp),
+                  roomId,
+                  isSystem: true
+                });
+                break;
+                
+              case 'userList':
+                setConnectedUsers(data.users);
+                break;
+                
+              case 'typing':
+                // Handle typing indicators if needed
+                break;
+
+              case 'error':
+                setError(data.message);
+                break;
+            }
+          } catch (error) {
+            console.error('Error processing message:', error);
+            setError('Failed to process message');
           }
-        } catch (error) {
-          console.error('Error processing message:', error);
-        }
-      };
+        };
 
-      setIsLoading(false);
+        setIsLoading(false);
+        setError(null);
+      } catch (error) {
+        console.error('Error joining chat:', error);
+        setError('Failed to join chat');
+      }
     }
 
     return () => {
@@ -102,42 +114,57 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
     e.preventDefault();
     if (!newMessage.trim() || !socket || !isConnected || !user) return;
 
-    const message: Message = {
-      id: Date.now().toString(),
-      content: newMessage,
-      sender: user.username,
-      timestamp: new Date(),
-      roomId
-    };
+    try {
+      const message: Message = {
+        id: Date.now().toString(),
+        content: newMessage,
+        sender: user.username,
+        timestamp: new Date(),
+        roomId
+      };
 
-    socket.send(JSON.stringify({
-      type: 'message',
-      content: newMessage
-    }));
+      socket.send(JSON.stringify({
+        type: 'message',
+        content: newMessage
+      }));
 
-    addMessage(message);
-    setNewMessage('');
+      addMessage(message);
+      setNewMessage('');
+      setError(null);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      setError('Failed to send message');
+    }
   };
 
   const handleTyping = () => {
     if (!socket || !isConnected) return;
 
-    if (!isTyping) {
-      setIsTyping(true);
-      socket.send(JSON.stringify({
-        type: 'typing',
-        isTyping: true
-      }));
-    }
+    try {
+      if (!isTyping) {
+        setIsTyping(true);
+        socket.send(JSON.stringify({
+          type: 'typing',
+          isTyping: true
+        }));
+      }
 
-    // Clear typing indicator after 2 seconds
-    setTimeout(() => {
-      setIsTyping(false);
-      socket.send(JSON.stringify({
-        type: 'typing',
-        isTyping: false
-      }));
-    }, 2000);
+      // Clear typing indicator after 2 seconds
+      setTimeout(() => {
+        setIsTyping(false);
+        socket.send(JSON.stringify({
+          type: 'typing',
+          isTyping: false
+        }));
+      }, 2000);
+    } catch (error) {
+      console.error('Error sending typing indicator:', error);
+    }
+  };
+
+  const handleReconnect = () => {
+    reconnect();
+    setError(null);
   };
 
   if (isLoading) {
@@ -153,14 +180,28 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
       {/* Chat Area */}
       <div className="flex-1 flex flex-col">
         <div className="p-4 border-b">
-          <h2 className="text-xl font-semibold">{currentRoom?.name}</h2>
-          <p className="text-sm text-gray-500">
-            {isConnected ? (
-              <span className="text-green-500">Connected</span>
-            ) : (
-              <span className="text-red-500">Disconnected</span>
-            )}
-          </p>
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold">{currentRoom?.name}</h2>
+            <div className="flex items-center gap-2">
+              {error && (
+                <span className="text-red-500 text-sm">{error}</span>
+              )}
+              {!isConnected && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleReconnect}
+                  className="flex items-center gap-1"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Reconnect
+                </Button>
+              )}
+              <span className={`text-sm ${isConnected ? 'text-green-500' : 'text-red-500'}`}>
+                {isConnected ? 'Connected' : 'Disconnected'}
+              </span>
+            </div>
+          </div>
         </div>
 
         <ScrollArea className="flex-1 p-4">

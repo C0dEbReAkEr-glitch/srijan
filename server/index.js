@@ -5,10 +5,25 @@ const cors = require('cors');
 
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
 
-app.use(cors());
+// Configure CORS
+app.use(cors({
+  origin: '*', // In production, replace with your frontend URL
+  methods: ['GET', 'POST'],
+  credentials: true
+}));
+
 app.use(express.json());
+
+// Create WebSocket server with CORS support
+const wss = new WebSocket.Server({ 
+  server,
+  path: '/ws',
+  verifyClient: (info) => {
+    // Allow all connections in development
+    return true;
+  }
+});
 
 // Store connected clients with their user info
 const clients = new Map();
@@ -17,7 +32,11 @@ const clients = new Map();
 const broadcast = (message, exclude = null) => {
   clients.forEach((client, ws) => {
     if (ws !== exclude && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(message));
+      try {
+        ws.send(JSON.stringify(message));
+      } catch (error) {
+        console.error('Error sending message:', error);
+      }
     }
   });
 };
@@ -31,7 +50,7 @@ const broadcastUserList = () => {
   });
 };
 
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
   console.log('New client connected');
 
   ws.on('message', (message) => {
@@ -126,7 +145,13 @@ wss.on('connection', (ws) => {
   });
 });
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', connectedClients: clients.size });
+});
+
 const PORT = process.env.PORT || 5500;
 server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
+  console.log(`WebSocket server is available at ws://localhost:${PORT}/ws`);
 }); 
