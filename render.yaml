@@ -13,7 +13,7 @@ services:
   - type: web
     name: chatroom-frontend
     runtime: node
-    buildCommand: npm install && npx vite build
+    buildCommand: npm install && npm install -D typescript @types/node && npm run build
     startCommand: npx serve dist
     envVars:
       - key: VITE_WS_URL
